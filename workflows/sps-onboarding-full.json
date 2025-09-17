@@ -1,0 +1,269 @@
+{
+  "name": "SPS Onboarding: Webhook → Payment → Certificate → Email",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "webhook/sps-registration",
+        "responseMode": "lastNode",
+        "respondWith": "text",
+        "responseContent": "OK"
+      },
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "resource": "paymentIntent",
+        "operation": "get",
+        "paymentIntentId": "={{ $json[\"payment_intent_id\"] }}"
+      },
+      "name": "Stripe: Get Payment Intent",
+      "type": "n8n-nodes-base.stripe",
+      "typeVersion": 1,
+      "position": [650, 300],
+      "credentials": {
+        "stripeApi": "Stripe Live"
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json[\"status\"] }}",
+              "operation": "equal",
+              "value2": "succeeded"
+            }
+          ]
+        }
+      },
+      "name": "IF Payment Succeeded",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "spreadsheetId": "1aBcDeFgHiJkLmNoPqRsTuVwXyZ",
+        "range": "A:F",
+        "options": {}
+      },
+      "name": "Google Sheets: Log Registration",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 1,
+      "position": [1050, 200],
+      "credentials": {
+        "googleSheetsOAuth2": "Google Sheets SPS"
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const courseCode = $input.item.json.course.replace(/\\s+/g, '_').toUpperCase();\nconst emailPrefix = $input.item.json.email.split('@')[0].substring(0, 5).toUpperCase();\nconst timestamp = new Date().getTime();\n\nconst certificateNumber = `SPS-${courseCode}-${emailPrefix}-${timestamp}`;\n\nreturn {\n  json: {\n    ...$input.item.json,\n    certificate_number: certificateNumber,\n    cert_date: new Date().toLocaleDateString()\n  }\n};"
+      },
+      "name": "Code: Generate Certificate Number",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1050, 400]
+    },
+    {
+      "parameters": {
+        "operation": "copy",
+        "presentationId": "1TEMPLATE_ID_HERE",
+        "title": "={{ \"Certificate - \" + $json[\"full_name\"] + \" - \" + $json[\"course\"] }}"
+      },
+      "name": "Google Slides: Copy Template",
+      "type": "n8n-nodes-base.googleSlides",
+      "typeVersion": 1,
+      "position": [1250, 400],
+      "credentials": {
+        "googleSlidesOAuth2": "Google Slides SPS"
+      }
+    },
+    {
+      "parameters": {
+        "presentationId": "={{ $('Google Slides: Copy Template').item.json.presentationId }}",
+        "requestsJson": "[\n  {\n    \"replaceAllText\": {\n      \"containsText\": { \"text\": \"{{FULL_NAME}}\", \"matchCase\": true },\n      \"replaceText\": \"={{ $json['full_name'] }}\"\n    }\n  },\n  {\n    \"replaceAllText\": {\n      \"containsText\": { \"text\": \"{{COURSE}}\", \"matchCase\": true },\n      \"replaceText\": \"={{ $json['course'] }}\"\n    }\n  },\n  {\n    \"replaceAllText\": {\n      \"containsText\": { \"text\": \"{{CERT_NUMBER}}\", \"matchCase\": true },\n      \"replaceText\": \"={{ $json['certificate_number'] }}\"\n    }\n  },\n  {\n    \"replaceAllText\": {\n      \"containsText\": { \"text\": \"{{DATE}}\", \"matchCase\": true },\n      \"replaceText\": \"={{ $json['cert_date'] }}\"\n    }\n  }\n]"
+      },
+      "name": "Google Slides: Replace Placeholders",
+      "type": "n8n-nodes-base.googleSlides",
+      "typeVersion": 1,
+      "position": [1450, 400],
+      "credentials": {
+        "googleSlidesOAuth2": "Google Slides SPS"
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ \"https://docs.google.com/presentation/d/\" + $('Google Slides: Copy Template').item.json.presentationId + \"/export/pdf\" }}",
+        "responseFormat": "file",
+        "options": {}
+      },
+      "name": "HTTP Request: Export as PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1650, 400]
+    },
+    {
+      "parameters": {
+        "toEmail": "={{ $json[\"email\"] }}",
+        "subject": "Your SPS Courier Certificate is Ready!",
+        "text": "Hi {{ $json[\"full_name\"] }},\n\nCongratulations! You’ve completed the {{ $json[\"course\"] }} course.\n\nYour certificate number: {{ $json[\"certificate_number\"] }}\n\nAttached is your official certificate. Print or save for your records.\n\nThank you for choosing SPS Courier Deliveries LLC!\n\nBest regards,\nThe SPS Team",
+        "attachments": "={{ $('HTTP Request: Export as PDF').item.binary.data }}"
+      },
+      "name": "Gmail: Send Certificate",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [1850, 400],
+      "credentials": {
+        "gmailOAuth2": "Gmail SPS"
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value": "={{ $json[\"message\"] }}",
+              "operation": "contains",
+              "value2": "Error"
+            }
+          ]
+        }
+      },
+      "name": "IF Error",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [2050, 400]
+    },
+    {
+      "parameters": {
+        "functionCode": "console.log('Email failed for: ' + $json.email);\n\n// Log to retry sheet or send admin alert\nreturn $input.all();"
+      },
+      "name": "Code: Log Error",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2250, 400]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Stripe: Get Payment Intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stripe: Get Payment Intent": {
+      "main": [
+        [
+          {
+            "node": "IF Payment Succeeded",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Payment Succeeded": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets: Log Registration",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Code: Generate Certificate Number",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code: Log Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Generate Certificate Number": {
+      "main": [
+        [
+          {
+            "node": "Google Slides: Copy Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Slides: Copy Template": {
+      "main": [
+        [
+          {
+            "node": "Google Slides: Replace Placeholders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Slides: Replace Placeholders": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request: Export as PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request: Export as PDF": {
+      "main": [
+        [
+          {
+            "node": "Gmail: Send Certificate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail: Send Certificate": {
+      "main": [
+        [
+          {
+            "node": "IF Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Error": {
+      "main": [
+        [
+          {
+            "node": "Code: Log Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "pinData": {}
+}
