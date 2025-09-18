@@ -1,6 +1,6 @@
 FROM n8nio/n8n
 
-# Switch to root to install n8n globally for all users
+# Switch to root to install n8n globally
 USER root
 
 # Reinstall n8n globally so it's available in system PATH
@@ -12,9 +12,9 @@ USER node
 # Fix PATH — add global npm binaries
 ENV PATH=/home/node/.npm-global/bin:$PATH
 
-# Ensure config directory exists and has correct permissions
+# Ensure config directory exists and initialize config as valid empty JSON
 RUN mkdir -p /home/node/.n8n && \
-    touch /home/node/.n8n/config && \
+    echo "{}" > /home/node/.n8n/config && \
     chmod 600 /home/node/.n8n/config
 
 # Expose port
