@@ -1,0 +1,15 @@
+{
+  "name": "sps-n8n-automation",
+  "version": "1.0.0",
+  "description": "Self-hosted n8n automation agent for SPS Courier Deliveries LLC",
+  "main": "index.js",
+  "scripts": {
+    "start": "n8n start --tunnel"
+  },
+  "dependencies": {
+    "n8n": "^1.111.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
