@@ -18,7 +18,7 @@ RUN mkdir -p /home/node/.n8n && \
     chmod 600 /home/node/.n8n/config
 
 # Expose port
-EXPOSE 5678
+EXPOSE 10000
 
 # Start n8n
 CMD ["n8n", "start", "--tunnel"]
