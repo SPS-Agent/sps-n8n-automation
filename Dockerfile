@@ -18,5 +18,5 @@ RUN mkdir -p /home/node/.n8n && \
 # Expose port 10000
 EXPOSE 10000
 
-# Override CMD to set env vars and start n8n
-CMD ["sh", "-c", "N8N_HOST=sps-n8n-automation.onrender.com N8N_PORT=10000 n8n start --tunnel"]
+# Override CMD to set env vars and start n8n — with single quotes for shell safety
+CMD ["sh", "-c", "N8N_HOST='sps-n8n-automation.onrender.com' N8N_PORT=10000 n8n start --tunnel"]
