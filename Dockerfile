@@ -1,24 +1,22 @@
 FROM n8nio/n8n
 
-# Switch to root to install n8n globally
+# Switch to root to install n8n globally (if needed)
 USER root
-
-# Reinstall n8n globally so it's available in system PATH
 RUN npm install -g n8n
 
-# Switch back to 'node' user for security
+# Switch back to node user
 USER node
 
-# Fix PATH — add global npm binaries
+# Fix PATH
 ENV PATH=/home/node/.npm-global/bin:$PATH
 
-# Ensure config directory exists and initialize config as valid empty JSON
+# Ensure config directory exists and is valid JSON
 RUN mkdir -p /home/node/.n8n && \
     echo "{}" > /home/node/.n8n/config && \
     chmod 600 /home/node/.n8n/config
 
-# Expose port
+# Expose port 10000
 EXPOSE 10000
 
-# Start n8n
-CMD ["n8n", "start", "--tunnel"]
+# Override CMD to set env vars and start n8n
+CMD ["sh", "-c", "N8N_HOST=sps-n8n-automation.onrender.com N8N_PORT=10000 n8n start --tunnel"]
