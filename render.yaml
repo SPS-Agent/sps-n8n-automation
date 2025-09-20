@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: sps-n8n-automation
+    env: docker
+    region: oregon # or your region
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: N8N_HOST
+        value: sps-n8n-automation.onrender.com
+      - key: N8N_PORT
+        value: "10000"
+      - key: N8N_PROTOCOL
+        value: https
+      - key: N8N_BASIC_AUTH_ACTIVE
+        value: "true"
+      - key: N8N_BASIC_AUTH_USER
+        value: admin
+      - key: N8N_BASIC_AUTH_PASSWORD
+        value: SPSVisionLogistics247+
+    healthCheckPath: /healthz
